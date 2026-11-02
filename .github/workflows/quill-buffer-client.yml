@@ -1,0 +1,140 @@
+name: quill-buffer-client
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - '.github/workflows/quill-buffer-client.yml'
+      - 'quill-buffer-client.js'
+      - 'package.json'
+
+jobs:
+  preflight_check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate Dependencies & Syntax
+        run: |
+          node -v
+          npm -v
+          echo "Preflight check passed. Launching distributed execution matrix..."
+
+  parallel_execution:
+    needs: [preflight_check]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: ubuntu-24.04
+          runtime: node
+          version: '20'
+          proxy: "socks5://dcswarup:webshare@216.173.104.80:6217"
+        - os: ubuntu-20.04
+          runtime: node
+          version: '18'
+          proxy: "socks5://dcswarup:webshare@104.233.15.135:5858"
+        - os: windows-2025
+          runtime: bun
+          version: 'latest'
+          proxy: "socks5://dcswarup:webshare@104.253.77.160:5582"
+        - os: windows-2022
+          runtime: node
+          version: '22'
+          proxy: "socks5://dcswarup:webshare@206.206.118.46:6284"
+        - os: ubuntu-latest
+          runtime: node
+          version: '24'
+          proxy: "socks5://dcswarup:webshare@195.172.135.200:5336"
+        - os: windows-latest
+          runtime: node
+          version: '20'
+          proxy: "socks5://dcswarup:webshare@92.112.137.242:6185"
+        - os: ubuntu-22.04
+          runtime: node
+          version: '24'
+          proxy: "socks5://dcswarup:webshare@151.245.206.161:8156"
+        - os: ubuntu-latest
+          runtime: node
+          version: '18'
+          proxy: "socks5://dcswarup:webshare@46.203.134.3:5627"
+        - os: windows-latest
+          runtime: bun
+          version: 'latest'
+          proxy: "socks5://dcswarup:webshare@142.111.113.197:6558"
+        - os: ubuntu-24.04
+          runtime: node
+          version: '22'
+          proxy: "socks5://dcswarup:webshare@152.232.4.64:8235"
+        - os: windows-2025
+          runtime: node
+          version: '24'
+          proxy: "socks5://dcswarup:webshare@23.26.95.236:5718"
+        - os: ubuntu-20.04
+          runtime: node
+          version: '22'
+          proxy: "socks5://dcswarup:webshare@31.59.10.68:5639"
+        - os: ubuntu-22.04
+          runtime: node
+          version: '20'
+          proxy: "socks5://dcswarup:webshare@204.93.187.250:8260"
+        - os: windows-2022
+          runtime: node
+          version: '18'
+          proxy: "socks5://dcswarup:webshare@64.64.118.243:6826"
+        - os: ubuntu-20.04
+          runtime: bun
+          version: 'latest'
+          proxy: "socks5://dcswarup:webshare@82.23.237.148:7482"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: ${{ matrix.runtime == 'node' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.version }}
+
+      - name: Setup Bun
+        if: ${{ matrix.runtime == 'bun' }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Run Task (Linux)
+        if: runner.os != 'Windows'
+        run: |
+          if [ "${{ matrix.runtime }}" = "bun" ]; then
+            bun install
+            bun run quill-buffer-client.js "${{ matrix.proxy }}" || true
+          else
+            npm install
+            node quill-buffer-client.js "${{ matrix.proxy }}" || true
+          fi
+
+      - name: Run Task (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if ("${{ matrix.runtime }}" -eq "bun") {
+            bun install
+            bun run quill-buffer-client.js "${{ matrix.proxy }}"
+          } else {
+            npm install
+            node quill-buffer-client.js "${{ matrix.proxy }}"
+          }
+
+  pipeline_summary:
+    needs: [parallel_execution]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log Execution Summary
+        run: |
+          echo "Pipeline quill-buffer-client finished execution at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          echo "Status: ${{ job.status }}"
